@@ -5,7 +5,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - sshrunner-data:/app/data
+      # Persistencia visible y respaldable en el host.
+      - ./data:/app/data
       # Solo lectura: las claves nunca se escriben en el contenedor.
       - ${HOME}/.ssh:/run/ssh:ro
     restart: unless-stopped
@@ -14,6 +15,3 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-volumes:
-  sshrunner-data:

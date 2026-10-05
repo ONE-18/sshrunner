@@ -19,8 +19,10 @@ OpenSSH; no es necesario instalar dependencias en el host.
 docker compose up -d --build
 ```
 
-Abre <http://127.0.0.1:8080>. Los scripts y credenciales se conservan en el
-volumen Docker `sshrunner-data`.
+Abre <http://127.0.0.1:8080>. Los scripts y credenciales se conservan en
+`data/store.json` en el host, montado como `/app/data` dentro del contenedor.
+Este archivo se mantiene al reiniciar o recrear el contenedor y puedes
+respaldarlo junto con el proyecto.
 
 El directorio `~/.ssh` se monta como solo lectura en `/run/ssh` dentro del
 contenedor. Al crear una conexión desde la aplicación, usa por ejemplo
@@ -32,6 +34,10 @@ Para detener la aplicación:
 ```bash
 docker compose down
 ```
+
+No ejecutes `docker compose down -v` esperando conservar datos de Docker
+anteriores; la configuración actual usa directamente `./data`, por lo que el
+archivo persistente está fuera del ciclo de vida del contenedor.
 
 El servicio solo publica el puerto en `127.0.0.1`. No lo expongas directamente
 a Internet.
