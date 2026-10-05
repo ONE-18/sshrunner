@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSH Runner</title>
+  <link rel="stylesheet" href="/app.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">⌁</span><span>SSH Runner</span></div>
+    <p class="eyebrow">Workspace local</p>
+    <nav><button class="nav-item active" data-view="dashboard"><span>▦</span> Panel</button></nav>
+    <div class="sidebar-foot"><span class="status-dot"></span> Motor listo <small>v1.0</small></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><p class="eyebrow">CENTRO DE OPERACIONES</p><h1>Ejecutar scripts con confianza.</h1></div><div class="secure"><span>▣</span> Solo en tu equipo</div></header>
+    <section class="hero">
+      <div><p class="eyebrow accent">FLUJO SSH</p><h2>Automatiza sin salir de tu espacio.</h2><p class="muted">Guarda tus conexiones y scripts en local, cópialos al servidor y consulta el resultado en un solo lugar.</p></div>
+      <div class="hero-decoration"><span>ssh</span><b>→</b><span>bash</span></div>
+    </section>
+    <div id="notice" class="notice hidden"></div>
+    <section class="card scripts-panel"><div class="card-head"><div><p class="eyebrow">01 / LIBRERÍA</p><h3>Scripts guardados</h3><p class="section-note">Pulsa un script para elegir una conexión y ejecutarlo.</p></div><button class="icon-btn" id="add-script" title="Nuevo script">＋</button></div><div id="script-grid" class="script-grid"></div></section>
+    <section class="card connections"><div class="card-head"><div><p class="eyebrow">02 / DESTINOS</p><h3>Conexiones SSH</h3></div><button class="icon-btn" id="add-credential" title="Nueva conexión">＋</button></div><div id="credential-list" class="list empty">Aún no hay conexiones guardadas.</div></section>
+    <footer>Las credenciales se almacenan únicamente en este equipo con permisos restringidos. Usa claves SSH, no contraseñas.</footer>
+  </main>
+  <dialog id="credential-dialog"><form method="dialog" id="credential-form"><div class="modal-head"><div><p class="eyebrow accent" id="credential-dialog-label">NUEVO DESTINO</p><h3 id="credential-dialog-title">Guardar conexión SSH</h3></div><button type="button" class="close" data-close-dialog="credential-dialog">×</button></div><label>Nombre visible<input name="name" placeholder="Producción · API" required></label><div class="two"><label>Host<input name="host" placeholder="192.168.1.10" required></label><label>Puerto<input name="port" type="number" value="22" min="1" max="65535" required></label></div><label>Usuario<input name="username" placeholder="deploy" required></label><label>Ruta de clave privada <span class="optional">opcional</span><input name="key_path" placeholder="/run/ssh/id_ed25519"></label><label>O pega la clave privada <span class="optional">opcional</span><textarea name="private_key" rows="5" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea><p class="hint" id="credential-key-hint">Usa una sola opción. La clave pegada se guarda localmente y solo se escribe temporalmente al ejecutar.</p><div class="modal-actions"><button type="button" class="secondary" data-close-dialog="credential-dialog">Cancelar</button><button class="primary" value="default" id="credential-submit">Guardar conexión</button></div></form></dialog>
+  <dialog id="script-dialog"><form method="dialog" id="script-form"><div class="modal-head"><div><p class="eyebrow accent">NUEVO SCRIPT</p><h3 id="script-dialog-title">Guardar script shell</h3></div><button type="button" class="close" data-close-dialog="script-dialog">×</button></div><label>Nombre<input name="name" placeholder="Deploy de aplicación" required></label><label>Descripción <span class="optional">opcional</span><input name="description" placeholder="Qué hace este script"></label><label>Contenido<textarea name="content" rows="10" spellcheck="false" required>#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Hola desde SSH Runner"</textarea></label><div class="modal-actions"><button type="button" class="secondary" data-close-dialog="script-dialog">Cancelar</button><button class="primary" value="default" id="script-submit">Guardar script</button></div></form></dialog>
+  <dialog id="run-dialog"><form method="dialog" id="run-form"><div class="modal-head"><div><p class="eyebrow accent">EJECUTAR SCRIPT</p><h3 id="run-dialog-title">Seleccionar conexión</h3></div><button type="button" class="close" data-close-dialog="run-dialog">×</button></div><p class="run-script-name" id="run-script-name"></p><label>Conexión SSH<select id="run-credential-select"><option value="">Selecciona un destino</option></select></label><div class="modal-actions"><button type="button" class="secondary" data-close-dialog="run-dialog">Cancelar</button><button type="button" class="primary" id="run-btn" disabled><span>▶</span> Copiar y ejecutar</button></div><div id="output-wrap" class="output-wrap hidden"><div class="output-head"><span><i></i> Output de ejecución</span><button type="button" id="clear-output">Limpiar</button></div><pre id="output"></pre></div></form></dialog>
+</body>
+</html>
