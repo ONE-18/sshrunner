@@ -115,6 +115,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_file(ROOT / "static" / "app.css", "text/css; charset=utf-8")
         if path == "/app.js":
             return self.serve_file(ROOT / "static" / "app.js", "text/javascript; charset=utf-8")
+        if path == "/favicon.svg":
+            return self.serve_file(ROOT / "static" / "favicon.svg", "image/svg+xml")
         self.send_json({"error": "No encontrado"}, 404)
 
     def serve_file(self, path, content_type):

@@ -3,7 +3,7 @@ services:
     build: .
     container_name: sshrunner
     ports:
-      - "127.0.0.1:8080:8080"
+      - "3000:8080"
     volumes:
       # Persistencia visible y respaldable en el host.
       - ./data:/app/data

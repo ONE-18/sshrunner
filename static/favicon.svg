@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>SSH Runner</title>
+  <rect width="64" height="64" rx="14" fill="#173b3f"/>
+  <path d="M16 35c5-13 9-13 14 0s9 13 14 0" fill="none" stroke="#f3c969" stroke-linecap="round" stroke-width="6"/>
+</svg>
