@@ -1,20 +1,238 @@
-const state={credentials:[],scripts:[]};
-const $=s=>document.querySelector(s);
-function applyTheme(dark){document.body.classList.toggle('dark-mode',dark);const button=$('#theme-toggle');button.innerHTML=dark?'<span>☀</span><b>Modo claro</b>':'<span>☾</span><b>Modo oscuro</b>';button.setAttribute('aria-label',dark?'Activar modo claro':'Activar modo oscuro');localStorage.setItem('theme',dark?'dark':'light')}
-async function api(url, options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});const data=await r.json();if(!r.ok)throw Error(data.error||'Ha ocurrido un error');return data}
-function notice(text,type='success'){const n=$('#notice');n.textContent=text;n.className=`notice ${type}`;setTimeout(()=>n.classList.add('hidden'),4500)}
-function render(){const cl=$('#credential-list'),sg=$('#script-grid');cl.className='list'+(state.credentials.length?'':' empty');cl.innerHTML=state.credentials.length?state.credentials.map(c=>`<div class="item"><div class="item-main"><span class="item-name">${esc(c.name)}</span><span class="item-meta">${esc(c.username)}@${esc(c.host)}:${c.port}</span></div><div class="item-actions"><button class="tiny-btn" data-edit="credentials" data-id="${c.id}" title="Editar">✎</button><button class="tiny-btn" data-delete="credentials" data-id="${c.id}" title="Eliminar">⌫</button></div></div>`).join(''):'Aún no hay conexiones guardadas.';sg.innerHTML=state.scripts.length?state.scripts.map(s=>`<article class="script-tile" data-open-script="${s.id}"><div class="script-tile-top"><span class="script-icon">⌘</span><div class="item-actions"><button class="tiny-btn" data-edit="scripts" data-id="${s.id}" title="Editar">✎</button><button class="tiny-btn" data-delete="scripts" data-id="${s.id}" title="Eliminar">⌫</button></div></div><h4>${esc(s.name)}</h4><p>${esc(s.description||'Sin descripción')}</p><span class="tile-action">Ejecutar <b>→</b></span></article>`).join(''):'<div class="grid-empty">Aún no hay scripts guardados. Crea el primero con el botón ＋.</div>'}
-function esc(v){const d=document.createElement('div');d.textContent=v;return d.innerHTML}
-function updateRun(){$('#run-btn').disabled=!$('#run-credential-select').value}
-async function refresh(){Object.assign(state,await api('/api/state'));render()}
-function openCredential(item){const f=$('#credential-form');f.dataset.id=item?.id||'';f.name.value=item?.name||'';f.host.value=item?.host||'';f.port.value=item?.port||22;f.username.value=item?.username||'';f.key_path.value=item?.key_path||'';f.private_key.value='';$('#credential-dialog-label').textContent=item?'EDITAR DESTINO':'NUEVO DESTINO';$('#credential-dialog-title').textContent=item?'Editar conexión SSH':'Guardar conexión SSH';$('#credential-submit').textContent=item?'Guardar cambios':'Guardar conexión';$('#credential-key-hint').textContent=item?'Deja ambos campos vacíos para conservar la clave actual. Para reemplazarla, usa solo una opción.':'Usa una sola opción. La clave pegada se guarda localmente y solo se escribe temporalmente al ejecutar.';$('#credential-dialog').showModal()}
-function openScript(item){const f=$('#script-form');f.dataset.id=item?.id||'';f.name.value=item?.name||'';f.description.value=item?.description||'';f.content.value=item?.content||'#!/usr/bin/env bash\\nset -euo pipefail\\n\\necho \"Hola desde SSH Runner\"';$('#script-dialog-title').textContent=item?'Editar script shell':'Guardar script shell';$('#script-submit').textContent=item?'Guardar cambios':'Guardar script';$('#script-dialog').showModal()}
-function openRun(script){$('#run-form').dataset.scriptId=script.id;$('#run-script-name').textContent=script.name;$('#run-credential-select').innerHTML='<option value="">Selecciona un destino</option>'+state.credentials.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.host)}</option>`).join('');$('#output-wrap').classList.add('hidden');$('#run-dialog').showModal();updateRun()}
-$('#add-credential').onclick=()=>openCredential();$('#add-script').onclick=()=>openScript();document.querySelectorAll('[data-close-dialog]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.closeDialog).close());$('#run-credential-select').onchange=updateRun;$('#clear-output').onclick=()=>$('#output-wrap').classList.add('hidden');
-$('#theme-toggle').onclick=()=>applyTheme(!document.body.classList.contains('dark-mode'));
-document.addEventListener('click',async e=>{const edit=e.target.closest('[data-edit]');if(edit){const list=state[edit.dataset.edit];const item=list.find(x=>x.id===edit.dataset.id);return edit.dataset.edit==='credentials'?openCredential(item):openScript(item)}const b=e.target.closest('[data-delete]');if(b){if(!confirm('¿Eliminar este elemento?'))return;try{await api(`/api/${b.dataset.delete}/${b.dataset.id}`,{method:'DELETE'});await refresh();notice('Elemento eliminado')}catch(err){notice(err.message,'error')}return}const tile=e.target.closest('[data-open-script]');if(tile){const script=state.scripts.find(s=>s.id===tile.dataset.openScript);if(script)openRun(script)}});
-$('#credential-form').onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target));const id=e.target.dataset.id;try{await api(id?`/api/credentials/${id}`:'/api/credentials',{method:id?'PUT':'POST',body:JSON.stringify(body)});e.target.closest('dialog').close();e.target.reset();e.target.dataset.id='';await refresh();notice(id?'Conexión actualizada':'Conexión guardada')}catch(err){notice(err.message,'error')}};
-$('#script-form').onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target));const id=e.target.dataset.id;try{await api(id?`/api/scripts/${id}`:'/api/scripts',{method:id?'PUT':'POST',body:JSON.stringify(body)});e.target.closest('dialog').close();e.target.reset();e.target.dataset.id='';await refresh();notice(id?'Script actualizado':'Script guardado')}catch(err){notice(err.message,'error')}};
-$('#run-btn').onclick=async()=>{const btn=$('#run-btn');btn.disabled=true;btn.innerHTML='<span>◌</span> Ejecutando…';$('#output-wrap').classList.remove('hidden');$('#output').textContent='Conectando y copiando el script…';try{const r=await api('/api/run',{method:'POST',body:JSON.stringify({credential_id:$('#run-credential-select').value,script_id:$('#run-form').dataset.scriptId})});$('#output').textContent=(r.stdout||'')+(r.stderr?`\n\n[stderr]\n${r.stderr}`:'')+`\n\nProceso terminado · código ${r.exit_code}`;notice(r.ok?'Script ejecutado correctamente':'El script terminó con errores',r.ok?'success':'error')}catch(err){$('#output').textContent=err.message;notice(err.message,'error')}finally{btn.disabled=false;btn.innerHTML='<span>▶</span> Copiar y ejecutar';updateRun()}};
-refresh().catch(err=>notice(err.message,'error'));
-applyTheme(localStorage.getItem('theme')==='dark');
+const state = { credentials: [], scripts: [] };
+const $ = (s) => document.querySelector(s);
+function applyTheme(dark) {
+  document.body.classList.toggle("dark-mode", dark);
+  const button = $("#theme-toggle");
+  button.innerHTML = dark
+    ? "<span>☀</span><b>Modo claro</b>"
+    : "<span>☾</span><b>Modo oscuro</b>";
+  button.setAttribute(
+    "aria-label",
+    dark ? "Activar modo claro" : "Activar modo oscuro",
+  );
+  localStorage.setItem("theme", dark ? "dark" : "light");
+}
+async function api(url, options = {}) {
+  const r = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error || "Ha ocurrido un error");
+  return data;
+}
+function notice(text, type = "success") {
+  const n = $("#notice");
+  n.textContent = text;
+  n.className = `notice ${type}`;
+  setTimeout(() => n.classList.add("hidden"), 4500);
+}
+function render() {
+  const cl = $("#credential-list"),
+    sg = $("#script-grid");
+  cl.className = "list" + (state.credentials.length ? "" : " empty");
+  cl.innerHTML = state.credentials.length
+    ? state.credentials
+        .map(
+          (c) =>
+            `<div class="item"><div class="item-main"><span class="item-name">${esc(c.name)}</span><span class="item-meta">${esc(c.username)}@${esc(c.host)}:${c.port}</span></div><div class="item-actions"><button class="tiny-btn" data-edit="credentials" data-id="${c.id}" title="Editar">✎</button><button class="tiny-btn" data-delete="credentials" data-id="${c.id}" title="Eliminar">⌫</button></div></div>`,
+        )
+        .join("")
+    : "Aún no hay conexiones guardadas.";
+  sg.innerHTML = state.scripts.length
+    ? state.scripts
+        .map(
+          (s) =>
+            `<article class="script-tile" data-open-script="${s.id}"><div class="script-tile-top"><span class="script-icon">⌘</span><div class="item-actions"><button class="tiny-btn" data-edit="scripts" data-id="${s.id}" title="Editar">✎</button><button class="tiny-btn" data-delete="scripts" data-id="${s.id}" title="Eliminar">⌫</button></div></div><h4>${esc(s.name)}</h4><p>${esc(s.description || "Sin descripción")}</p><span class="tile-action">Ejecutar <b>→</b></span></article>`,
+        )
+        .join("")
+    : '<div class="grid-empty">Aún no hay scripts guardados. Crea el primero con el botón ＋.</div>';
+}
+function esc(v) {
+  const d = document.createElement("div");
+  d.textContent = v;
+  return d.innerHTML;
+}
+function updateRun() {
+  $("#run-btn").disabled = !$("#run-credential-select").value;
+}
+async function refresh() {
+  Object.assign(state, await api("/api/state"));
+  render();
+}
+function openCredential(item) {
+  const f = $("#credential-form");
+  f.dataset.id = item?.id || "";
+  f.name.value = item?.name || "";
+  f.host.value = item?.host || "";
+  f.port.value = item?.port || 22;
+  f.username.value = item?.username || "";
+  f.key_path.value = item?.key_path || "";
+  f.private_key.value = "";
+  $("#credential-dialog-label").textContent = item
+    ? "EDITAR DESTINO"
+    : "NUEVO DESTINO";
+  $("#credential-dialog-title").textContent = item
+    ? "Editar conexión SSH"
+    : "Guardar conexión SSH";
+  $("#credential-submit").textContent = item
+    ? "Guardar cambios"
+    : "Guardar conexión";
+  $("#credential-key-hint").textContent = item
+    ? "Deja ambos campos vacíos para conservar la clave actual. Para reemplazarla, usa solo una opción."
+    : "Usa una sola opción. La clave pegada se guarda localmente y solo se escribe temporalmente al ejecutar.";
+  $("#credential-dialog").showModal();
+}
+function openScript(item) {
+  const f = $("#script-form");
+  f.dataset.id = item?.id || "";
+  f.name.value = item?.name || "";
+  f.description.value = item?.description || "";
+  f.content.value =
+    item?.content ||
+    '#!/usr/bin/env bash\\nset -euo pipefail\\n\\necho \"Hola desde SSH Runner\"';
+  $("#script-credential-select").innerHTML =
+    '<option value=\"\">Sin desencadenador API</option>' +
+    state.credentials
+      .map(
+        (c) =>
+          `<option value=\"${c.id}\">${esc(c.name)} · ${esc(c.host)}</option>`,
+      )
+      .join("");
+  f.credential_id.value = item?.credential_id || "";
+  f.api_enabled.checked = !!item?.api_enabled;
+  $("#script-api-hint").textContent = item?.api_enabled
+    ? `Endpoint: POST /api/trigger/${item.api_token}`
+    : "Al activarlo se generará un token para llamar al script mediante HTTP.";
+  $("#script-dialog-title").textContent = item
+    ? "Editar script shell"
+    : "Guardar script shell";
+  $("#script-submit").textContent = item ? "Guardar cambios" : "Guardar script";
+  $("#script-dialog").showModal();
+}
+function openRun(script) {
+  $("#run-form").dataset.scriptId = script.id;
+  $("#run-script-name").textContent = script.name;
+  $("#run-credential-select").innerHTML =
+    '<option value="">Selecciona un destino</option>' +
+    state.credentials
+      .map(
+        (c) =>
+          `<option value="${c.id}">${esc(c.name)} · ${esc(c.host)}</option>`,
+      )
+      .join("");
+  $("#output-wrap").classList.add("hidden");
+  $("#run-dialog").showModal();
+  updateRun();
+}
+$("#add-credential").onclick = () => openCredential();
+$("#add-script").onclick = () => openScript();
+document
+  .querySelectorAll("[data-close-dialog]")
+  .forEach(
+    (b) =>
+      (b.onclick = () =>
+        document.getElementById(b.dataset.closeDialog).close()),
+  );
+$("#run-credential-select").onchange = updateRun;
+$("#clear-output").onclick = () => $("#output-wrap").classList.add("hidden");
+$("#theme-toggle").onclick = () =>
+  applyTheme(!document.body.classList.contains("dark-mode"));
+document.addEventListener("click", async (e) => {
+  const edit = e.target.closest("[data-edit]");
+  if (edit) {
+    const list = state[edit.dataset.edit];
+    const item = list.find((x) => x.id === edit.dataset.id);
+    return edit.dataset.edit === "credentials"
+      ? openCredential(item)
+      : openScript(item);
+  }
+  const b = e.target.closest("[data-delete]");
+  if (b) {
+    if (!confirm("¿Eliminar este elemento?")) return;
+    try {
+      await api(`/api/${b.dataset.delete}/${b.dataset.id}`, {
+        method: "DELETE",
+      });
+      await refresh();
+      notice("Elemento eliminado");
+    } catch (err) {
+      notice(err.message, "error");
+    }
+    return;
+  }
+  const tile = e.target.closest("[data-open-script]");
+  if (tile) {
+    const script = state.scripts.find((s) => s.id === tile.dataset.openScript);
+    if (script) openRun(script);
+  }
+});
+$("#credential-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  const id = e.target.dataset.id;
+  try {
+    await api(id ? `/api/credentials/${id}` : "/api/credentials", {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify(body),
+    });
+    e.target.closest("dialog").close();
+    e.target.reset();
+    e.target.dataset.id = "";
+    await refresh();
+    notice(id ? "Conexión actualizada" : "Conexión guardada");
+  } catch (err) {
+    notice(err.message, "error");
+  }
+};
+$("#script-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  const id = e.target.dataset.id;
+  try {
+    await api(id ? `/api/scripts/${id}` : "/api/scripts", {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify(body),
+    });
+    e.target.closest("dialog").close();
+    e.target.reset();
+    e.target.dataset.id = "";
+    await refresh();
+    notice(id ? "Script actualizado" : "Script guardado");
+  } catch (err) {
+    notice(err.message, "error");
+  }
+};
+$("#run-btn").onclick = async () => {
+  const btn = $("#run-btn");
+  btn.disabled = true;
+  btn.innerHTML = "<span>◌</span> Ejecutando…";
+  $("#output-wrap").classList.remove("hidden");
+  $("#output").textContent = "Conectando y copiando el script…";
+  try {
+    const r = await api("/api/run", {
+      method: "POST",
+      body: JSON.stringify({
+        credential_id: $("#run-credential-select").value,
+        script_id: $("#run-form").dataset.scriptId,
+      }),
+    });
+    $("#output").textContent =
+      (r.stdout || "") +
+      (r.stderr ? `\n\n[stderr]\n${r.stderr}` : "") +
+      `\n\nProceso terminado · código ${r.exit_code}`;
+    notice(
+      r.ok ? "Script ejecutado correctamente" : "El script terminó con errores",
+      r.ok ? "success" : "error",
+    );
+  } catch (err) {
+    $("#output").textContent = err.message;
+    notice(err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "<span>▶</span> Copiar y ejecutar";
+    updateRun();
+  }
+};
+refresh().catch((err) => notice(err.message, "error"));
+applyTheme(localStorage.getItem("theme") === "dark");
