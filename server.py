@@ -73,12 +73,25 @@ def public_credential(item):
 def public_script(item):
     return {
         k: item.get(k, "")
-        for k in ("id", "name", "description", "content", "updated_at")
+        for k in (
+            "id",
+            "name",
+            "description",
+            "content",
+            "updated_at",
+            "api_enabled",
+            "api_token",
+            "credential_id",
+        )
     }
 
 
 def validate_id(value):
     return bool(value and re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", value))
+
+
+def is_enabled(value):
+    return value in (True, 1, "1", "on", "true")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -140,6 +153,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.create_script(body)
             if path == "/api/run":
                 return self.run_script(body)
+            parts = path.split("/")
+            if len(parts) == 4 and parts[1:3] == ["api", "trigger"] and parts[3]:
+                return self.trigger_script(parts[3])
         except (ValueError, json.JSONDecodeError) as exc:
             return self.send_json({"error": str(exc) or "JSON inválido"}, 400)
         except Exception as exc:
@@ -258,11 +274,20 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": "El script necesita nombre y contenido"}, 400
             )
         db = load_db()
+        api_enabled = is_enabled(body.get("api_enabled"))
+        credential_id = str(body.get("credential_id", "")).strip()
+        if api_enabled and not any(x["id"] == credential_id for x in db["credentials"]):
+            return self.send_json(
+                {"error": "Selecciona una conexión SSH para activar la API"}, 400
+            )
         item = {
             "id": uuid.uuid4().hex[:10],
             "name": name[:120],
             "description": str(body.get("description", "")).strip()[:240],
             "content": content,
+            "api_enabled": api_enabled,
+            "api_token": secrets.token_urlsafe(24) if api_enabled else "",
+            "credential_id": credential_id if api_enabled else "",
             "updated_at": __import__("datetime")
             .datetime.now()
             .isoformat(timespec="minutes"),
@@ -281,11 +306,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(
                 {"error": "El script necesita nombre y contenido"}, 400
             )
+        api_enabled = is_enabled(body.get("api_enabled"))
+        credential_id = str(body.get("credential_id", "")).strip()
+        if api_enabled and not any(x["id"] == credential_id for x in db["credentials"]):
+            return self.send_json(
+                {"error": "Selecciona una conexión SSH para activar la API"}, 400
+            )
         item.update(
             {
                 "name": name[:120],
                 "description": str(body.get("description", "")).strip()[:240],
                 "content": content,
+                "api_enabled": api_enabled,
+                "api_token": (item.get("api_token") or secrets.token_urlsafe(24))
+                if api_enabled
+                else "",
+                "credential_id": credential_id if api_enabled else "",
                 "updated_at": __import__("datetime")
                 .datetime.now()
                 .isoformat(timespec="minutes"),
@@ -293,6 +329,27 @@ class Handler(BaseHTTPRequestHandler):
         )
         save_db(db)
         self.send_json(public_script(item))
+
+    def trigger_script(self, token):
+        db = load_db()
+        script = next(
+            (
+                x
+                for x in db["scripts"]
+                if x.get("api_enabled")
+                and secrets.compare_digest(x.get("api_token", ""), token)
+            ),
+            None,
+        )
+        if not script:
+            return self.send_json({"error": "Endpoint no encontrado"}, 404)
+        if not script.get("credential_id"):
+            return self.send_json(
+                {"error": "El script no tiene una conexión SSH configurada"}, 400
+            )
+        return self.run_script(
+            {"script_id": script["id"], "credential_id": script["credential_id"]}
+        )
 
     def run_script(self, body):
         db = load_db()

@@ -52,6 +52,16 @@ Abre <http://127.0.0.1:8080>. Los datos se guardan en `data/store.json`, creado 
 
 El flujo **Copiar y ejecutar** envía el contenido por stdin a un archivo temporal en el servidor, aplica permisos ejecutables, ejecuta `bash` y elimina el archivo aunque el script termine con un código distinto de cero.
 
+### Desencadenadores API
+
+Al crear o editar un script, selecciona una conexión SSH y activa **Activar desencadenador API**. La aplicación generará un token y mostrará el endpoint en el panel:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/trigger/TOKEN
+```
+
+La respuesta tiene el mismo formato que la ejecución desde la interfaz (`ok`, `exit_code`, `stdout` y `stderr`). El token permite ejecutar ese script en la conexión configurada; mantenlo privado. Para generar uno nuevo, desactiva y vuelve a activar la API del script.
+
 Las conexiones pueden usar una ruta a una clave existente o el contenido pegado de
 una clave privada. La clave pegada se almacena en `data/store.json`, protegido
 con permisos `0600`, y se escribe en un archivo temporal local con permisos
